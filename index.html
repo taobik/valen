@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gửi Vi - Valentine Vũ Trụ Toàn Diện</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #00020a; font-family: 'Segoe UI', Arial, sans-serif; }
+        canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; }
+        #instruction {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #ff4d6d; font-size: 20px; pointer-events: none; text-align: center;
+            text-shadow: 0 0 20px rgba(255,77,109,1); transition: opacity 0.5s;
+            text-transform: uppercase; letter-spacing: 4px; z-index: 20;
+        }
+        /* Canvas 2D nằm dưới Three.js ban đầu */
+        #valentineCanvas { z-index: 5; opacity: 0; transition: opacity 2s; }
+    </style>
+</head>
+<body>
+    <div id="instruction">Chạm để bắt đầu hành trình ❤️</div>
+
+    <canvas id="valentineCanvas"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script>
+        // --- PHẦN 1: THREE.JS (MORPHING) ---
+        let scene, camera, renderer, particles, controls, stars;
+        let isExploded = false;
+        let isStatic = false; 
+        const PARTICLE_COUNT = 45000; 
+
+        const imgPaths = [
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771047867/629368595_2137760236764844_3161129000283034705_n_ylucvq.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771050211/629214798_26508978968693921_4721258476802686494_n_plvhat.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771053036/629186449_902896588782011_5507633191016377477_n_udsi5f.jpg"
+        ];
+
+        let textTargets = []; 
+        let imageTargets = []; 
+
+        initThree();
+
+        async function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.z = 65; 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            createStarfield();
+            await prepareAllData();
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(PARTICLE_COUNT * 3);
+            const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const t = Math.random() * Math.PI * 2;
+                const x = 16 * Math.pow(Math.sin(t), 3) * 1.1;
+                const y = (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * 1.1;
+                positions.set([x, y, (Math.random() - 0.5) * 5], i * 3);
+                colors.set([1, 0.1, 0.3], i * 3); 
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({ size: 0.3, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true });
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            window.addEventListener('pointerdown', startFullSequence);
+            window.addEventListener('resize', onWindowResize);
+            animateThree();
+        }
+
+        function createStarfield() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starPositions = new Float32Array(2000 * 3);
+            for (let i = 0; i < 2000; i++) {
+                starPositions[i*3] = (Math.random() - 0.5) * 1000;
+                starPositions[i*3+1] = (Math.random() - 0.5) * 1000;
+                starPositions[i*3+2] = (Math.random() - 0.5) * 1000;
+            }
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+            stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.6 }));
+            scene.add(stars);
+        }
+
+        async function prepareAllData() {
+            const quotes = [
+                "Gửi Vi, cảm ơn em vì đã là một cô gái đáng yêu (và hay bắt bẻ) như thế. Chúc em một ngày 14/02 thật hạnh phúc, và hy vọng những ngày 14/02 tới, người bên cạnh em vẫn là anh.",
+                "Chúc Vi Valentine hết sợ ma, chỉ còn sợ mất anh thôi nhé. Nếu có sợ quá thì cứ gọi, anh không xuất hồn nữa mà sẽ xuất hiện ngay lập tức để bảo vệ em!",
+                "Valentine năm này tụi mình không bên cạnh nhau, nhưng a hứa năm sau chính tay a sẽ nắm tay e đi dạo phố, đi chơi. Nhớ Anh ít thôi .... để còn có sức yêu nhau lâu dài nhen",
+                "Valentine xa nhau nhưng tâm hồn  2 đứa mình gần nhau là được em nhỉ?  Khi hai ta gặp nhau thì ngày nào cũng sẽ là Valentine của hai đứa mình"
+            ];
+            quotes.forEach(q => textTargets.push(createSmartTextPoints(q, "bold 40px Arial", 0.08)));
+            for (let path of imgPaths) imageTargets.push(await processImage(path));
+        }
+
+        async function processImage(path) {
+            const img = new Image(); img.crossOrigin = "Anonymous"; img.src = path;
+            await new Promise(res => img.onload = res);
+            const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+            const resH = 300, resW = 180; c.width = resW; c.height = resH;
+            ctx.drawImage(img, 0, 0, resW, resH);
+            const data = ctx.getImageData(0, 0, resW, resH).data;
+            const pts = [], cols = [];
+            for (let y = 0; y < resH; y++) {
+                for (let x = 0; x < resW; x++) {
+                    const idx = (y * resW + x) * 4;
+                    if (data[idx+3] > 150) {
+                        pts.push(new THREE.Vector3((x - resW / 2) * 0.25, (resH / 2 - y) * 0.25, 0));
+                        cols.push(data[idx]/255, data[idx+1]/255, data[idx+2]/255);
+                    }
+                }
+            }
+            return { pts, cols };
+        }
+
+        function createSmartTextPoints(text, fontStyle, scale) {
+            const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+            c.width = 2000; c.height = 1400; ctx.fillStyle = 'white'; ctx.font = fontStyle; ctx.textAlign = 'center';
+            const words = text.split(' '); let line = '', lines = [], maxWidth = 600;
+            for(let n=0; n<words.length; n++) {
+                let test = line + words[n] + ' ';
+                if (ctx.measureText(test).width > maxWidth && n > 0) { lines.push(line); line = words[n] + ' '; }
+                else line = test;
+            }
+            lines.push(line);
+            const lineHeight = parseInt(fontStyle.match(/\d+/)[0]) * 1.8;
+            const startY = (c.height - (lines.length * lineHeight)) / 2;
+            lines.forEach((l, i) => ctx.fillText(l, 1000, startY + (i * lineHeight)));
+            const data = ctx.getImageData(0, 0, c.width, c.height).data;
+            const points = [];
+            for (let y = 0; y < c.height; y += 2) {
+                for (let x = 0; x < c.width; x += 2) {
+                    if (data[(y * c.width + x) * 4] > 50) points.push(new THREE.Vector3((x - 1000) * scale, (c.height/2 - y) * scale, 0));
+                }
+            }
+            const final = []; for(let i=0; i<PARTICLE_COUNT; i++) final.push(points[i % points.length]);
+            return final;
+        }
+
+        function startFullSequence() {
+            if (isExploded) return;
+            isExploded = true; isStatic = true; 
+            document.getElementById('instruction').style.opacity = '0';
+            controls.autoRotate = false;
+            runStep(0); 
+        }
+
+        function runStep(index) {
+            if (index >= imageTargets.length) {
+                transformParticles(textTargets[3], null, 1, 1, 1, 2000, () => {
+                    setTimeout(endThreeAndStartFalling, 5000); // KẾT THÚC MORPHING
+                });
+                return;
+            }
+            transformParticles(textTargets[index], null, 1, 1, 1, 1200, () => {
+                setTimeout(() => {
+                    transformParticles(imageTargets[index].pts, imageTargets[index].cols, null, null, null, 1000, () => {
+                        setTimeout(() => runStep(index + 1), 4000);
+                    });
+                }, 5500);
+            });
+        }
+
+        function transformParticles(targetPos, targetCols, r, g, b, speed, callback) {
+            const posAttr = particles.geometry.attributes.position;
+            const colAttr = particles.geometry.attributes.color;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const idx = i * 3; const nextP = targetPos[i % targetPos.length];
+                new TWEEN.Tween(posAttr.array).to({ [idx]: nextP.x, [idx+1]: nextP.y, [idx+2]: nextP.z }, speed)
+                    .easing(TWEEN.Easing.Quartic.InOut).onUpdate(() => posAttr.needsUpdate = true)
+                    .onComplete(() => { if(i===0 && callback) callback(); }).start();
+                const nextR = targetCols ? targetCols[idx % targetCols.length] : r;
+                const nextG = targetCols ? targetCols[(idx+1) % targetCols.length] : g;
+                const nextB = targetCols ? targetCols[(idx+2) % targetCols.length] : b;
+                new TWEEN.Tween(colAttr.array).to({ [idx]: nextR, [idx+1]: nextG, [idx+2]: nextB }, speed).onUpdate(() => colAttr.needsUpdate = true).start();
+            }
+        }
+
+        function endThreeAndStartFalling() {
+            // Làm mờ Three.js và xóa đi
+            new TWEEN.Tween(particles.material).to({ opacity: 0 }, 2000).onComplete(() => {
+                renderer.domElement.style.display = 'none';
+                startFallingEffect(); // Kích hoạt chương trình rơi
+            }).start();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animateThree() {
+            requestAnimationFrame(animateThree); TWEEN.update(); controls.update();
+            if(stars) { stars.rotation.y += 0.0003; stars.rotation.x += 0.0001; }
+            renderer.render(scene, camera);
+        }
+
+        // --- PHẦN 2: CANVAS 2D (FALLING EFFECT) ---
+        const canvas2d = document.getElementById('valentineCanvas');
+        const ctx2d = canvas2d.getContext('2d');
+        const fallingImgUrls = [
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771050211/629214798_26508978968693921_4721258476802686494_n_plvhat.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771053036/629186449_902896588782011_5507633191016377477_n_udsi5f.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771050211/629272186_1230057639100760_8482342482807689780_n_v7jnxs.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771047867/629368595_2137760236764844_3161129000283034705_n_ylucvq.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055485/f60a8c920bbd85e3dcac23_hav50f.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055482/e7c7db625c4dd2138b5c20_hn5kq1.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055482/a44f22cba5e42bba72f515_xkddx5.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055482/293100475931871691014_qxcvbg.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055482/293100475931871691013_cfbj2s.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055481/293100475931871691012_zmrhdl.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055478/293100475931871691011_kldozv.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055478/293100475931871691010_ds8a4t.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055478/29310047593187169109_ph27aa.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055478/29310047593187169108_apglb4.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055477/29310047593187169107_ieetke.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055472/29310047593187169105_mrujnx.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055472/29310047593187169104_owonaj.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055471/29310047593187169103_okrlz3.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055465/24846724e00b6e55371a28_mye0sz.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055464/458a8301042e8a70d33f16_hw58an.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055464/2973d6e651c9df9786d832_pzcbqp.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055464/40d08373045c8a02d34d21_uwkvml.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055464/3cb83631b11e3f40660f18_gf5xhu.jpg",
+            "https://res.cloudinary.com/dascseee2/image/upload/v1771055463/5ac3c4664349cd17945824_owvq6y.jpg"
+        ];
+        const fallingMessages = ["Chúc Valentine Vui Vẻ", "Mãi Yêu Em", "Happy Valentine's Day", "Yêu Em Nhất Trên Đời", "Hạnh Phúc Bên Nhau Nhé"];
+        let fallingImages = [], fallingElements = [], bgStars = [];
+
+        function startFallingEffect() {
+            canvas2d.style.opacity = "1";
+            canvas2d.width = window.innerWidth; canvas2d.height = window.innerHeight;
+            
+            // Load ảnh cho hiệu ứng rơi
+            let loaded = 0;
+            fallingImgUrls.forEach(url => {
+                const img = new Image(); img.src = url;
+                img.onload = () => { loaded++; if(loaded === fallingImgUrls.length) initFalling(); };
+                fallingImages.push(img);
+            });
+        }
+
+        function initFalling() {
+            for (let i = 0; i < 150; i++) bgStars.push({ x: Math.random() * canvas2d.width, y: Math.random() * canvas2d.height, size: Math.random() * 1.2, op: Math.random() });
+            for (let i = 0; i < 45; i++) {
+                fallingElements.push(new FallingObject(i % 10 < 7 ? 'text' : 'image'));
+            }
+            animateFalling();
+        }
+
+        class FallingObject {
+            constructor(type) { this.type = type; this.init(true); }
+            init(first) {
+                this.x = Math.random() * canvas2d.width; this.y = first ? Math.random() * canvas2d.height : -150;
+                this.speed = Math.random() * 0.4 + 0.2; this.op = Math.random() * 0.7 + 0.3;
+                if (this.type === 'image') {
+                    this.img = fallingImages[Math.floor(Math.random() * fallingImages.length)];
+                    this.size = Math.random() * 30 + 40; this.rot = Math.random() * 6; this.rotS = (Math.random() - 0.5) * 0.01;
+                } else {
+                    this.text = fallingMessages[Math.floor(Math.random() * fallingMessages.length)];
+                    this.fSize = Math.random() * 8 + 14;
+                }
+            }
+            update() { this.y += this.speed; if(this.type === 'image') this.rot += this.rotS; if(this.y > canvas2d.height + 150) this.init(false); }
+            draw() {
+                ctx2d.save(); ctx2d.globalAlpha = this.op;
+                if(this.type === 'image') {
+                    ctx2d.translate(this.x, this.y); ctx2d.rotate(this.rot);
+                    ctx2d.drawImage(this.img, -this.size/2, -this.size/2, this.size, this.size);
+                } else {
+                    ctx2d.font = `bold ${this.fSize}px Arial`; ctx2d.fillStyle = "white";
+                    ctx2d.shadowBlur = 8; ctx2d.shadowColor = "white"; ctx2d.fillText(this.text, this.x, this.y);
+                }
+                ctx2d.restore();
+            }
+        }
+
+        function animateFalling() {
+            ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
+            ctx2d.fillStyle = "white";
+            bgStars.forEach(s => { ctx2d.globalAlpha = s.op; ctx2d.beginPath(); ctx2d.arc(s.x, s.y, s.size, 0, 7); ctx2d.fill(); });
+            fallingElements.forEach(el => { el.update(); el.draw(); });
+            requestAnimationFrame(animateFalling);
+        }
+    </script>
+</body>
+</html>
